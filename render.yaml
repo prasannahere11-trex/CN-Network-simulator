@@ -1,7 +1,7 @@
 services:
-  # 1. FastAPI Backend Web Service
+  # Single Unified Full-Stack Web Service (Serves both React Frontend and FastAPI Backend)
   - type: web
-    name: campus-network-backend
+    name: campus-network-simulator
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
@@ -11,21 +11,3 @@ services:
         value: 3.11.0
       - key: PORT
         value: 10000
-
-  # 2. React + Vite Frontend Static Site
-  - type: web
-    name: campus-network-frontend
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: campus-network-backend
-          property: host

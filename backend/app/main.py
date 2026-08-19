@@ -2,6 +2,8 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from app.routes import api_router
 
 app = FastAPI(
@@ -21,15 +23,36 @@ app.add_middleware(
 # Register API routes with /api prefix
 app.include_router(api_router)
 
+# Path to built frontend distribution
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
 
-@app.get("/")
-def root():
-    return {
-        "name": "Multi-Area Campus Network Simulator API",
-        "version": "2.0.0",
-        "docs_url": "/docs",
-        "health_check": "/api/health"
-    }
+if os.path.exists(frontend_dist):
+    assets_dir = os.path.join(frontend_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/")
+    async def serve_index():
+        return FileResponse(os.path.join(frontend_dist, "index.html"))
+
+    @app.get("/{full_path:path}")
+    async def serve_spa_catchall(full_path: str):
+        if full_path.startswith("api") or full_path.startswith("docs") or full_path == "openapi.json":
+            return {"error": "Not Found"}
+        
+        target_file = os.path.join(frontend_dist, full_path)
+        if os.path.isfile(target_file):
+            return FileResponse(target_file)
+        return FileResponse(os.path.join(frontend_dist, "index.html"))
+else:
+    @app.get("/")
+    def root():
+        return {
+            "name": "Multi-Area Campus Network Simulator API",
+            "version": "2.0.0",
+            "docs_url": "/docs",
+            "health_check": "/api/health"
+        }
 
 
 if __name__ == "__main__":
