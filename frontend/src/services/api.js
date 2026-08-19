@@ -3,13 +3,20 @@
  * Uses native fetch API exclusively to communicate with the FastAPI backend.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+let rawApiUrl = import.meta.env.VITE_API_URL || '/api';
+if (rawApiUrl && !rawApiUrl.startsWith('http://') && !rawApiUrl.startsWith('https://') && !rawApiUrl.startsWith('/')) {
+  rawApiUrl = `https://${rawApiUrl}/api`;
+} else if (rawApiUrl && (rawApiUrl.startsWith('http://') || rawApiUrl.startsWith('https://')) && !rawApiUrl.endsWith('/api')) {
+  rawApiUrl = `${rawApiUrl.replace(/\/$/, '')}/api`;
+}
+const API_BASE_URL = rawApiUrl;
 
 /**
  * Standard fetch wrapper with JSON parsing and error handling.
  */
 export async function request(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${API_BASE_URL}${cleanEndpoint}`;
   
   const defaultHeaders = {
     'Content-Type': 'application/json',
