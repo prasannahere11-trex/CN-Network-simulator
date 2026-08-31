@@ -3,20 +3,47 @@
  * Uses native fetch API exclusively to communicate with the FastAPI backend.
  */
 
-let rawApiUrl = import.meta.env.VITE_API_URL || '/api';
-if (rawApiUrl && !rawApiUrl.startsWith('http://') && !rawApiUrl.startsWith('https://') && !rawApiUrl.startsWith('/')) {
-  rawApiUrl = `https://${rawApiUrl}/api`;
-} else if (rawApiUrl && (rawApiUrl.startsWith('http://') || rawApiUrl.startsWith('https://')) && !rawApiUrl.endsWith('/api')) {
-  rawApiUrl = `${rawApiUrl.replace(/\/$/, '')}/api`;
+export function getApiBaseUrl() {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('campus_api_url');
+    if (custom && custom.trim()) {
+      let trimmed = custom.trim();
+      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/')) {
+        trimmed = `https://${trimmed}`;
+      }
+      if (!trimmed.endsWith('/api') && !trimmed.endsWith('/')) {
+        trimmed = `${trimmed}/api`;
+      }
+      return trimmed;
+    }
+  }
+
+  let rawApiUrl = import.meta.env.VITE_API_URL || '/api';
+  if (rawApiUrl && !rawApiUrl.startsWith('http://') && !rawApiUrl.startsWith('https://') && !rawApiUrl.startsWith('/')) {
+    rawApiUrl = `https://${rawApiUrl}/api`;
+  } else if (rawApiUrl && (rawApiUrl.startsWith('http://') || rawApiUrl.startsWith('https://')) && !rawApiUrl.endsWith('/api')) {
+    rawApiUrl = `${rawApiUrl.replace(/\/$/, '')}/api`;
+  }
+  return rawApiUrl;
 }
-const API_BASE_URL = rawApiUrl;
+
+export function setCustomApiUrl(url) {
+  if (typeof window !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('campus_api_url', url.trim());
+    } else {
+      localStorage.removeItem('campus_api_url');
+    }
+  }
+}
 
 /**
  * Standard fetch wrapper with JSON parsing and error handling.
  */
 export async function request(endpoint, options = {}) {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = `${API_BASE_URL}${cleanEndpoint}`;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${cleanEndpoint}`;
   
   const defaultHeaders = {
     'Content-Type': 'application/json',

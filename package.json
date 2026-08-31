@@ -1,0 +1,21 @@
+{
+  "name": "campus-network-simulator",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Multi-Area Campus Network Simulator across LAN, MAN, and WAN",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview"
+  },
+  "keywords": [
+    "network-simulator",
+    "ospf",
+    "bgp",
+    "packet-tracing",
+    "react",
+    "fastapi"
+  ],
+  "author": "",
+  "license": "MIT"
+}

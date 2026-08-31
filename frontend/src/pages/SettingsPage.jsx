@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getSettings, updateSettings, resetNetworkTopology, exportTopology, importTopology } from '../services/simulationService';
+import { getApiBaseUrl, setCustomApiUrl } from '../services/api';
+import { checkHealth } from '../services/deviceService';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState(null);
@@ -12,6 +14,11 @@ export default function SettingsPage() {
   const [globalLoss, setGlobalLoss] = useState(0.0);
   const [refBw, setRefBw] = useState(100000);
   const [mtu, setMtu] = useState(1500);
+
+  // Backend API URL Config
+  const [apiUrlInput, setApiUrlInput] = useState(getApiBaseUrl());
+  const [apiTesting, setApiTesting] = useState(false);
+  const [apiStatus, setApiStatus] = useState(null);
 
   const fetchSettings = async () => {
     try {
@@ -34,6 +41,41 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  const handleTestApi = async () => {
+    try {
+      setApiTesting(true);
+      setApiStatus(null);
+      setCustomApiUrl(apiUrlInput);
+      const res = await checkHealth();
+      if (res && res.status === 'ok') {
+        setApiStatus({ success: true, message: `Connected successfully! (${res.service || 'FastAPI'})` });
+      } else {
+        setApiStatus({ success: false, message: 'Received unexpected response from API server.' });
+      }
+    } catch (err) {
+      setApiStatus({ success: false, message: `Connection failed: ${err.message}` });
+    } finally {
+      setApiTesting(false);
+    }
+  };
+
+  const handleSaveApiUrl = () => {
+    setCustomApiUrl(apiUrlInput);
+    setSuccessMsg('Backend API endpoint updated!');
+    setTimeout(() => setSuccessMsg(null), 3000);
+    window.location.reload();
+  };
+
+  const handleResetApiUrl = () => {
+    setCustomApiUrl(null);
+    setApiUrlInput('/api');
+    setSuccessMsg('Backend API reset to default (/api)');
+    setTimeout(() => {
+      setSuccessMsg(null);
+      window.location.reload();
+    }, 1000);
+  };
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
@@ -119,6 +161,68 @@ export default function SettingsPage() {
           ✓ {successMsg}
         </div>
       )}
+
+      {/* Backend Connection / Deployment Config Card */}
+      <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--accent-cyan)' }}>
+        <div className="card-header">
+          <h3 className="card-title">🌐 Backend API Server Connection (Vercel / Cloud / Local)</h3>
+        </div>
+
+        <div style={{ padding: '0.25rem 0' }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+            When deployed on Vercel, specify the target URL of your deployed FastAPI backend (e.g. <code>https://your-app.onrender.com</code> or <code>http://127.0.0.1:8000</code>).
+          </p>
+
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              className="form-input mono"
+              style={{ flex: '1', minWidth: '240px' }}
+              value={apiUrlInput}
+              onChange={(e) => setApiUrlInput(e.target.value)}
+              placeholder="e.g. https://your-backend.onrender.com or /api"
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleTestApi}
+              disabled={apiTesting}
+            >
+              {apiTesting ? 'Testing...' : '⚡ Test Connection'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleSaveApiUrl}
+            >
+              💾 Save & Connect
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleResetApiUrl}
+              title="Reset to default /api"
+            >
+              🔄 Reset
+            </button>
+          </div>
+
+          {apiStatus && (
+            <div
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.5rem 0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                background: apiStatus.success ? 'var(--badge-active-bg)' : 'rgba(244, 63, 94, 0.1)',
+                border: `1px solid ${apiStatus.success ? 'var(--badge-active-border)' : 'rgba(244, 63, 94, 0.3)'}`,
+                color: apiStatus.success ? 'var(--badge-active-text)' : 'var(--accent-rose)',
+              }}
+            >
+              {apiStatus.success ? '✓' : '✗'} {apiStatus.message}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Global Settings Form */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
