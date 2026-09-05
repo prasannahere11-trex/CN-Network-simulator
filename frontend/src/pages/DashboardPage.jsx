@@ -133,7 +133,7 @@ export default function DashboardPage({ isConnected, onNavigate }) {
           <div>
             <h2 className="card-title">📁 Sample Network Topology Structures & Architectures</h2>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-              Load production-grade pre-configured topologies with 1 click to test routing, failover, and packet simulation
+              Load production-grade pre-configured topologies with 1 click to test connectivity, failover, and packet simulation
             </p>
           </div>
           <button
@@ -220,16 +220,16 @@ export default function DashboardPage({ isConnected, onNavigate }) {
 
           <div className="status-list">
             <div className="status-item">
-              <span className="status-item-label">Network Routing Engine</span>
-              <span className="status-item-val" style={{ color: 'var(--accent-emerald)' }}>
-                ● OSPF (Dijkstra SPF) & BGP Active
+              <span className="status-item-label">Packet Simulation Engine</span>
+              <span className="status-item-val" style={{ color: 'var(--accent-cyan)' }}>
+                ● Online (L2-L7 Dissection & Real-time Delay Model)
               </span>
             </div>
 
             <div className="status-item">
-              <span className="status-item-label">Packet Engine Mode</span>
-              <span className="status-item-val" style={{ color: 'var(--accent-cyan)' }}>
-                ● Active (L2-L7 Dissection & Delay Model)
+              <span className="status-item-label">Network Area Tiers</span>
+              <span className="status-item-val" style={{ color: 'var(--accent-emerald)' }}>
+                ● LAN (Access) / MAN (Core) / WAN (Edge Cloud)
               </span>
             </div>
 
@@ -274,11 +274,11 @@ export default function DashboardPage({ isConnected, onNavigate }) {
 
             <button
               className="btn btn-secondary"
-              onClick={() => onNavigate('routing')}
+              onClick={() => onNavigate('devices')}
               type="button"
               style={{ width: '100%', justifyContent: 'flex-start' }}
             >
-              🔀 Inspect Routing Tables (OSPF / BGP)
+              🖥️ Manage Network Devices & Hosts
             </button>
 
             <button
