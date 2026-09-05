@@ -23,6 +23,8 @@ export default function RoutingPage() {
       const routers = (devs || []).filter((d) => d.type === 'Router' || d.type === 'Switch');
       if (routers.length > 0 && !selectedDeviceId) {
         setSelectedDeviceId(routers[0].id);
+      } else if (devs && devs.length > 0 && !selectedDeviceId) {
+        setSelectedDeviceId(devs[0].id);
       }
 
       if (devs && devs.length >= 2) {
@@ -73,22 +75,31 @@ export default function RoutingPage() {
 
   const selectedDev = devices.find((d) => d.id === selectedDeviceId);
 
+  // Resilient route extractor
+  const routes = Array.isArray(routingTable?.routes) 
+    ? routingTable.routes 
+    : Array.isArray(routingTable?.entries) 
+    ? routingTable.entries 
+    : Array.isArray(routingTable) 
+    ? routingTable 
+    : [];
+
   return (
     <div className="routing-page">
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)' }}>
             Dynamic Routing Protocols & Forwarding Tables
           </h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Compare Link-State OSPF (Dijkstra SPF) vs Distance-Vector RIP (Bellman-Ford) routing convergence
+            Compare Link-State OSPF (Dijkstra SPF) vs BGP vs RIP routing convergence & FIB tables
           </p>
         </div>
 
         {/* Protocol Selector Pills */}
         <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-          {['OSPF', 'RIP', 'STATIC'].map((p) => (
+          {['OSPF', 'BGP', 'RIP'].map((p) => (
             <button
               key={p}
               type="button"
@@ -113,31 +124,31 @@ export default function RoutingPage() {
 
       {/* Top Section: Algorithm Overview Card */}
       <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, rgba(22, 31, 48, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
           <div>
             <div style={{ fontSize: '0.78rem', color: 'var(--accent-cyan)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
               Link-State (OSPF)
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-              Uses Dijkstra's Shortest Path First (SPF) algorithm. Metric cost is calculated inversely proportional to link bandwidth (100 Gbps / Bandwidth). Prefers optical fiber high-speed paths.
+              Uses Dijkstra's Shortest Path First (SPF) algorithm. Metric cost is calculated inversely proportional to link bandwidth (100 Gbps / Bandwidth). Prefers 10G optical fiber links.
             </p>
           </div>
 
           <div>
             <div style={{ fontSize: '0.78rem', color: 'var(--accent-emerald)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-              Distance-Vector (RIP)
+              Border Gateway (BGP)
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-              Uses Bellman-Ford shortest hop count (max 15 hops). Treats all active links as metric cost 1 regardless of medium, prioritizing minimal physical hop transitions.
+              Path-vector autonomous system routing across LAN, MAN, and external WAN cloud gateways with AS path attribute evaluation.
             </p>
           </div>
 
           <div>
             <div style={{ fontSize: '0.78rem', color: 'var(--accent-amber)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-              Static & Default Gateways
+              Distance-Vector (RIP)
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-              Deterministic route entries configured for campus host workstations and default gateway uplinks (0.0.0.0/0) pointing towards distribution routers.
+              Bellman-Ford hop count metrics. Treats all active neighbor links with equal hop cost to minimize physical transitions.
             </p>
           </div>
         </div>
@@ -171,11 +182,11 @@ export default function RoutingPage() {
 
           {loadingTable ? (
             <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Computing convergence for {selectedDev?.name}...
+              Computing convergence for {selectedDev?.name || selectedDeviceId}...
             </div>
-          ) : !routingTable || routingTable.routes.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              No active routes converged for this node.
+          ) : routes.length === 0 ? (
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              No active routes converged for this node. Ensure connected links are UP.
             </div>
           ) : (
             <div className="table-container">
@@ -185,32 +196,32 @@ export default function RoutingPage() {
                     <th>Destination Network</th>
                     <th>Next Hop (Gateway)</th>
                     <th>Interface</th>
-                    <th>Metric / Cost</th>
+                    <th>Metric Cost</th>
                     <th>Proto</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {routingTable.routes.map((rt, idx) => (
+                  {routes.map((rt, idx) => (
                     <tr key={idx}>
                       <td>
                         <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
-                          {rt.destination_network}
+                          {rt.destination_network || rt.destination || rt.ip_address || '0.0.0.0/0'}
                         </strong>
                       </td>
                       <td>
                         <span className="code-badge" style={{ color: 'var(--accent-cyan)' }}>
-                          {rt.gateway}
+                          {rt.gateway || rt.next_hop_ip || rt.next_hop_id || 'Direct Link'}
                         </span>
                       </td>
                       <td>
-                        <span className="code-badge">{rt.interface}</span>
+                        <span className="code-badge">{rt.interface || rt.interface_type || 'Eth0/1'}</span>
                       </td>
                       <td style={{ fontFamily: 'var(--font-mono)', fontWeight: '600' }}>
-                        {rt.metric}
+                        {rt.metric !== undefined ? rt.metric : rt.metric_cost !== undefined ? rt.metric_cost : 1}
                       </td>
                       <td>
                         <span className="device-type-badge" style={{ fontSize: '0.7rem' }}>
-                          {rt.protocol}
+                          {rt.protocol || protocol}
                         </span>
                       </td>
                     </tr>
@@ -268,7 +279,7 @@ export default function RoutingPage() {
               type="button"
               style={{ width: '100%' }}
             >
-              {loadingPath ? 'Calculating SPF Tree...' : `Solve Path (${protocol})`}
+              {loadingPath ? 'Calculating Shortest Path Tree...' : `Solve Path (${protocol})`}
             </button>
           </div>
 
@@ -285,12 +296,14 @@ export default function RoutingPage() {
                   ● {pathResult.reachable ? 'Route Reachable' : 'Unreachable'}
                 </span>
                 <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald)' }}>
-                  Est. Latency: <strong>{pathResult.estimated_latency_ms} ms</strong>
+                  Est. Latency: <strong>{pathResult.total_latency_ms || pathResult.estimated_latency_ms || 0} ms</strong>
                 </span>
               </div>
 
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: '1.4' }}>
-                {pathResult.explanation}
+                {pathResult.explanation || (pathResult.reachable 
+                  ? `Shortest path computed with ${pathResult.hops_count || (pathResult.path?.length ? pathResult.path.length - 1 : 0)} intermediate hops.` 
+                  : 'No active route found between nodes.')}
               </div>
 
               {pathResult.path && pathResult.path.length > 0 && (
@@ -316,14 +329,14 @@ export default function RoutingPage() {
                     <div>
                       <div className="stat-label">Metric Cost / Hops</div>
                       <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                        {pathResult.total_cost_or_hops}
+                        {pathResult.total_cost !== undefined ? pathResult.total_cost : pathResult.total_cost_or_hops || pathResult.hops_count || 0}
                       </div>
                     </div>
 
                     <div>
                       <div className="stat-label">Bottleneck Bandwidth</div>
                       <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
-                        {pathResult.bottleneck_bandwidth_mbps} Mbps
+                        {pathResult.bottleneck_bandwidth_mbps || 1000} Mbps
                       </div>
                     </div>
                   </div>

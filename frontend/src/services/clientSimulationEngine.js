@@ -499,13 +499,17 @@ class ClientSimulationEngine {
           const nextHopId = res.path[1];
           const nextHopDev = this.devices.find((d) => d.id === nextHopId);
           entries.push({
+            destination_network: target.ip_address + (target.subnet_mask === '255.255.0.0' ? '/16' : '/24'),
             destination: target.ip_address,
             target_device_id: target.id,
             target_device_name: target.name,
-            next_hop_ip: nextHopDev ? nextHopDev.ip_address : 'Direct',
+            gateway: nextHopDev ? `${nextHopDev.name} (${nextHopDev.ip_address})` : 'Direct Link',
+            next_hop_ip: nextHopDev ? nextHopDev.ip_address : 'Direct Link',
             next_hop_id: nextHopId,
+            metric: res.total_cost,
             metric_cost: res.total_cost,
             protocol: protocol,
+            interface: dev.type === 'Switch' ? 'VLAN-Access' : 'Eth0/1',
             interface_type: dev.type === 'Switch' ? 'SwitchPort' : 'Eth0/1',
             status: 'ACTIVE',
           });
@@ -518,11 +522,28 @@ class ClientSimulationEngine {
         device_type: dev.type,
         device_ip: dev.ip_address,
         protocol: protocol,
+        routes: entries,
         entries: entries,
       });
     });
 
     return tables;
+  }
+
+  getDeviceRoutingTable(deviceId, protocol = 'OSPF') {
+    const all = this.getRoutingTables(protocol);
+    const found = all.find((t) => t.device_id === deviceId);
+    if (found) return found;
+    const dev = this.devices.find((d) => d.id === deviceId);
+    return {
+      device_id: deviceId,
+      device_name: dev ? dev.name : deviceId,
+      device_type: dev ? dev.type : 'Router',
+      device_ip: dev ? dev.ip_address : '',
+      protocol: protocol,
+      routes: [],
+      entries: []
+    };
   }
 
   // Packet Simulation

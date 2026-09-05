@@ -114,9 +114,16 @@ function handleClientEngine(endpoint, options = {}) {
 
   // Routing
   if (cleanEndpoint.startsWith('/routing/tables')) {
-    const urlParams = new URLSearchParams(cleanEndpoint.split('?')[1] || '');
+    const urlParts = cleanEndpoint.split('?');
+    const pathPart = urlParts[0];
+    const urlParams = new URLSearchParams(urlParts[1] || '');
     const protocol = urlParams.get('protocol') || 'OSPF';
-    return clientSimulationEngine.getRoutingTables(protocol);
+
+    if (pathPart === '/routing/tables' || pathPart === '/routing/tables/') {
+      return clientSimulationEngine.getRoutingTables(protocol);
+    }
+    const devId = decodeURIComponent(pathPart.replace('/routing/tables/', ''));
+    return clientSimulationEngine.getDeviceRoutingTable(devId, protocol);
   }
   if (cleanEndpoint === '/routing/path') {
     return clientSimulationEngine.calculatePath(body.source_id, body.destination_id, body.protocol || 'OSPF');
