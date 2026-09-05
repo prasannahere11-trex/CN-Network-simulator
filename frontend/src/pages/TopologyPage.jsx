@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getDevices, updateDevice, deleteDevice } from '../services/deviceService';
-import { getLinks, toggleLink, deleteLink, sendPacket } from '../services/simulationService';
+import { getLinks, toggleLink, deleteLink, sendPacket, getPresets, loadPreset } from '../services/simulationService';
 import AddDeviceModal from '../components/AddDeviceModal';
 import AddLinkModal from '../components/AddLinkModal';
 import PingModal from '../components/PingModal';
@@ -12,6 +12,9 @@ export default function TopologyPage({ onDeviceChanged }) {
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedLink, setSelectedLink] = useState(null);
+  const [presets, setPresets] = useState([]);
+  const [selectedPresetId, setSelectedPresetId] = useState('enterprise-campus');
+  const [loadingPreset, setLoadingPreset] = useState(false);
 
   // Modals
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
@@ -29,9 +32,16 @@ export default function TopologyPage({ onDeviceChanged }) {
   const fetchTopologyData = async () => {
     try {
       setLoading(true);
-      const [devs, lks] = await Promise.all([getDevices(), getLinks()]);
+      const [devs, lks, presetList] = await Promise.all([
+        getDevices(),
+        getLinks(),
+        getPresets().catch(() => [])
+      ]);
       setDevices(devs || []);
       setLinks(lks || []);
+      if (presetList && presetList.length > 0) {
+        setPresets(presetList);
+      }
     } catch (err) {
       console.warn('Failed to load topology:', err);
     } finally {
@@ -42,6 +52,22 @@ export default function TopologyPage({ onDeviceChanged }) {
   useEffect(() => {
     fetchTopologyData();
   }, []);
+
+  const handleLoadPreset = async (presetId) => {
+    try {
+      setLoadingPreset(true);
+      setSelectedPresetId(presetId);
+      setSelectedNode(null);
+      setSelectedLink(null);
+      await loadPreset(presetId);
+      await fetchTopologyData();
+      if (onDeviceChanged) onDeviceChanged();
+    } catch (err) {
+      alert(`Failed to load preset structure: ${err.message}`);
+    } finally {
+      setLoadingPreset(false);
+    }
+  };
 
   // Node Drag Handlers
   const handleMouseDown = (e, dev) => {
@@ -168,12 +194,42 @@ export default function TopologyPage({ onDeviceChanged }) {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Sample Structures & Presets Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600' }}>📁 Structure:</span>
+              <select
+                className="form-select"
+                style={{ fontSize: '0.78rem', padding: '0.35rem 0.6rem', maxWidth: '220px' }}
+                value={selectedPresetId}
+                onChange={(e) => handleLoadPreset(e.target.value)}
+                disabled={loadingPreset}
+              >
+                {presets.length > 0 ? (
+                  presets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="enterprise-campus">Enterprise 3-Tier Campus</option>
+                    <option value="star-lan">Department Star LAN</option>
+                    <option value="redundant-ring">Redundant MAN Mesh Ring</option>
+                    <option value="hybrid-cloud-wan">Multi-Branch Hybrid WAN</option>
+                    <option value="p2p-lab">Point-to-Point 2-Host Lab</option>
+                    <option value="blank-canvas">Blank Canvas (Clean Slate)</option>
+                  </>
+                )}
+              </select>
+            </div>
+
             <button
               className="btn btn-secondary"
               onClick={fetchTopologyData}
               type="button"
               style={{ fontSize: '0.8rem', padding: '0.45rem 0.8rem' }}
+              title="Refresh canvas data"
             >
               🔄 Refresh
             </button>
@@ -182,6 +238,7 @@ export default function TopologyPage({ onDeviceChanged }) {
               onClick={() => setIsAddLinkOpen(true)}
               type="button"
               style={{ fontSize: '0.8rem', padding: '0.45rem 0.8rem' }}
+              disabled={devices.length < 2}
             >
               ⚡ Connect Link
             </button>
@@ -232,31 +289,31 @@ export default function TopologyPage({ onDeviceChanged }) {
               {/* LAN 1: CSE */}
               <rect x="50" y="80" width="420" height="250" rx="14" fill="rgba(56, 189, 248, 0.04)" stroke="rgba(56, 189, 248, 0.25)" strokeDasharray="5 5" />
               <text x="70" y="110" fill="#38bdf8" fontSize="12" fontWeight="700" fontFamily="sans-serif">
-                AREA 1: LAN (CSE Department - 192.168.10.0/24)
+                AREA 1: LAN (Local Subnet / Access Layer)
               </text>
 
               {/* LAN 2: ECE */}
               <rect x="50" y="370" width="420" height="180" rx="14" fill="rgba(168, 85, 247, 0.04)" stroke="rgba(168, 85, 247, 0.25)" strokeDasharray="5 5" />
               <text x="70" y="400" fill="#c084fc" fontSize="12" fontWeight="700" fontFamily="sans-serif">
-                AREA 2: LAN (ECE Department - 192.168.20.0/24)
+                AREA 2: LAN (Department / Workstation Tier)
               </text>
 
               {/* MAN: Campus Inter-Building Backbone */}
               <rect x="510" y="80" width="290" height="470" rx="14" fill="rgba(16, 185, 129, 0.04)" stroke="rgba(16, 185, 129, 0.25)" strokeDasharray="5 5" />
               <text x="530" y="110" fill="#10b981" fontSize="12" fontWeight="700" fontFamily="sans-serif">
-                AREA 0: MAN Backbone (10.0.0.0/16 Ring)
+                AREA 0: MAN Backbone (Core Ring & Aggregation)
               </text>
 
               {/* Data Center / Servers */}
               <rect x="830" y="80" width="330" height="210" rx="14" fill="rgba(59, 130, 246, 0.04)" stroke="rgba(59, 130, 246, 0.25)" strokeDasharray="5 5" />
               <text x="850" y="110" fill="#60a5fa" fontSize="12" fontWeight="700" fontFamily="sans-serif">
-                CAMPUS DATA CENTER (172.16.0.0/24)
+                CAMPUS DATA CENTER / SERVER VAULT
               </text>
 
               {/* WAN: ISP / Cloud */}
               <rect x="830" y="370" width="330" height="180" rx="14" fill="rgba(245, 158, 11, 0.04)" stroke="rgba(245, 158, 11, 0.25)" strokeDasharray="5 5" />
               <text x="850" y="400" fill="#fbbf24" fontSize="12" fontWeight="700" fontFamily="sans-serif">
-                WAN GATEWAY & CLOUD (203.0.113.0/24)
+                WAN EDGE GATEWAY & PUBLIC CLOUD
               </text>
 
               {/* Render Links */}
@@ -366,13 +423,6 @@ export default function TopologyPage({ onDeviceChanged }) {
                       begin={`${idx * 0.7}s`}
                       fill="freeze"
                     />
-                    <animate
-                      attributeName="opacity"
-                      values="0;1;1;0"
-                      dur="0.8s"
-                      begin={`${idx * 0.7}s`}
-                      fill="freeze"
-                    />
                   </circle>
                 );
               })}
@@ -380,119 +430,100 @@ export default function TopologyPage({ onDeviceChanged }) {
               {/* Render Device Nodes */}
               {devices.map((dev) => {
                 const isSelected = selectedNode?.id === dev.id;
-                const isDown = dev.status !== 'active';
-                const x = dev.x || 100;
-                const y = dev.y || 100;
                 const areaColor = getAreaColor(dev.area);
+                const isInactive = dev.status === 'inactive';
 
                 return (
                   <g
                     key={dev.id}
-                    transform={`translate(${x}, ${y})`}
+                    transform={`translate(${dev.x || 100}, ${dev.y || 100})`}
                     onMouseDown={(e) => handleMouseDown(e, dev)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedNode(dev);
-                      setSelectedLink(null);
-                    }}
-                    style={{ cursor: 'grab' }}
+                    style={{ cursor: draggingNodeId === dev.id ? 'grabbing' : 'grab' }}
                   >
-                    {/* Selection halo */}
+                    {/* Node Background Halo if selected */}
                     {isSelected && (
                       <circle
                         r="32"
                         fill="none"
                         stroke="var(--accent-cyan)"
-                        strokeWidth="2.5"
-                        strokeDasharray="4,4"
+                        strokeWidth="2"
+                        strokeDasharray="4 2"
+                        opacity="0.8"
                       />
                     )}
 
-                    {/* Node base circle */}
+                    {/* Outer Circle Container */}
                     <circle
                       r="24"
-                      fill={isDown ? 'var(--bg-input)' : 'var(--bg-card)'}
-                      stroke={isDown ? 'var(--accent-rose)' : areaColor}
-                      strokeWidth="2"
-                      filter="drop-shadow(0 4px 6px rgba(0,0,0,0.5))"
+                      fill="var(--bg-card)"
+                      stroke={isSelected ? 'var(--accent-cyan)' : areaColor}
+                      strokeWidth={isSelected ? 3 : 2}
+                      opacity={isInactive ? 0.4 : 1}
+                      filter={isSelected ? 'url(#glow-cyan)' : 'none'}
                     />
 
-                    {/* Icon */}
+                    {/* Status Indicator Dot */}
+                    <circle
+                      cx="16"
+                      cy="-16"
+                      r="5"
+                      fill={isInactive ? '#f43f5e' : '#10b981'}
+                      stroke="var(--bg-card)"
+                      strokeWidth="1.5"
+                    />
+
+                    {/* Device Icon */}
                     <text
                       x="0"
-                      y="7"
+                      y="6"
                       textAnchor="middle"
                       fontSize="18"
-                      style={{ userSelect: 'none', pointerEvents: 'none' }}
+                      style={{ userSelect: 'none' }}
                     >
                       {getNodeIcon(dev.type)}
                     </text>
 
-                    {/* Node ID & IP Labels */}
+                    {/* Device ID Label */}
                     <text
                       x="0"
-                      y="40"
+                      y="38"
                       textAnchor="middle"
                       fill="var(--text-primary)"
                       fontSize="11"
                       fontWeight="700"
                       fontFamily="sans-serif"
-                      style={{ userSelect: 'none', pointerEvents: 'none' }}
+                      style={{ userSelect: 'none' }}
                     >
-                      {dev.name}
+                      {dev.id}
                     </text>
 
+                    {/* Device IP Address Label */}
                     <text
                       x="0"
-                      y="53"
+                      y="50"
                       textAnchor="middle"
-                      fill="var(--accent-cyan)"
-                      fontSize="10"
+                      fill="var(--text-muted)"
+                      fontSize="9.5"
                       fontFamily="monospace"
-                      style={{ userSelect: 'none', pointerEvents: 'none' }}
+                      style={{ userSelect: 'none' }}
                     >
                       {dev.ip_address}
                     </text>
-
-                    {/* Status Dot */}
-                    <circle
-                      cx="18"
-                      cy="-18"
-                      r="5"
-                      fill={dev.status === 'active' ? 'var(--accent-emerald)' : 'var(--accent-rose)'}
-                      stroke="var(--bg-primary)"
-                      strokeWidth="1.5"
-                    />
                   </g>
                 );
               })}
             </svg>
           )}
 
-          {/* Floating Context Panel for Selected Node */}
+          {/* Quick Node Details Slideover / Card */}
           {selectedNode && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '1rem',
-                right: '1rem',
-                width: '300px',
-                background: 'rgba(22, 31, 48, 0.95)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid var(--border-focus)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '1.25rem',
-                boxShadow: 'var(--shadow-lg)',
-                zIndex: 20,
-              }}
-            >
+            <div className="topology-inspector-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.25rem' }}>{getNodeIcon(selectedNode.type)}</span>
+                  <span style={{ fontSize: '1.2rem' }}>{getNodeIcon(selectedNode.type)}</span>
                   <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{selectedNode.name}</strong>
                 </div>
                 <button
-                  type="button"
                   onClick={() => setSelectedNode(null)}
                   style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}
                 >
@@ -500,67 +531,47 @@ export default function TopologyPage({ onDeviceChanged }) {
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.78rem', marginBottom: '1rem' }}>
-                <div><span style={{ color: 'var(--text-muted)' }}>ID:</span> <code className="code-badge">{selectedNode.id}</code></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Type:</span> <strong style={{ color: 'var(--text-primary)' }}>{selectedNode.type}</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>IP:</span> <strong style={{ color: 'var(--accent-cyan)' }}>{selectedNode.ip_address}</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Area:</span> <span className="code-badge" style={{ color: getAreaColor(selectedNode.area) }}>{selectedNode.area}</span></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Gateway:</span> <code>{selectedNode.gateway || 'None (Direct/Core)'}</code></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>MAC:</span> <code>{selectedNode.mac_address || '00:1A:2B:..'}</code></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Location:</span> {selectedNode.location}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.78rem', marginBottom: '1rem' }}>
+                <div><span style={{ color: 'var(--text-muted)' }}>ID:</span> <strong className="mono">{selectedNode.id}</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Type:</span> <strong>{selectedNode.type}</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>IP:</span> <strong className="mono">{selectedNode.ip_address}</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Area:</span> <span className="code-badge">{selectedNode.area}</span></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Gateway:</span> <span className="mono">{selectedNode.gateway || 'None'}</span></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Status:</span> <span className={`status-pill ${selectedNode.status}`}>{selectedNode.status}</span></div>
+                <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'var(--text-muted)' }}>Location:</span> <span>{selectedNode.location}</span></div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={() => setPingSource(selectedNode)}
-                  style={{ fontSize: '0.78rem', padding: '0.4rem' }}
+                  style={{ fontSize: '0.78rem', padding: '0.45rem', flex: 1 }}
                 >
-                  📡 Ping From Here
+                  📡 Send Packet Ping
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={async () => {
-                    const newStatus = selectedNode.status === 'active' ? 'inactive' : 'active';
-                    await updateDevice(selectedNode.id, { status: newStatus });
-                    await fetchTopologyData();
-                    setSelectedNode((prev) => (prev ? { ...prev, status: newStatus } : null));
-                    if (onDeviceChanged) onDeviceChanged();
+                  onClick={() => {
+                    const otherDev = devices.find((d) => d.id !== selectedNode.id && d.status === 'active');
+                    if (otherDev) handleQuickPing(selectedNode.id, otherDev.id);
                   }}
-                  style={{ fontSize: '0.78rem', padding: '0.4rem' }}
+                  style={{ fontSize: '0.78rem', padding: '0.45rem' }}
+                  title="Quick ping first available host"
                 >
-                  {selectedNode.status === 'active' ? 'Turn Off' : 'Turn On'}
+                  ⚡ Auto Ping
                 </button>
               </div>
             </div>
           )}
 
-          {/* Floating Context Panel for Selected Link */}
+          {/* Quick Link Inspector Card */}
           {selectedLink && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '1rem',
-                right: '1rem',
-                width: '320px',
-                background: 'rgba(22, 31, 48, 0.95)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid var(--accent-cyan)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '1.25rem',
-                boxShadow: 'var(--shadow-lg)',
-                zIndex: 20,
-              }}
-            >
+            <div className="topology-inspector-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.25rem' }}>⚡</span>
-                  <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>Link Interconnect</strong>
-                </div>
+                <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>🔗 Link Inspector</strong>
                 <button
-                  type="button"
                   onClick={() => setSelectedLink(null)}
                   style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.1rem' }}
                 >
@@ -568,22 +579,15 @@ export default function TopologyPage({ onDeviceChanged }) {
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.8rem', marginBottom: '1rem' }}>
-                <div><span style={{ color: 'var(--text-muted)' }}>Link ID:</span> <code className="code-badge">{selectedLink.id}</code></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Interconnect:</span> <strong>{selectedLink.source_id} &harr; {selectedLink.target_id}</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Medium Type:</span> {selectedLink.link_type}</div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Bandwidth:</span> <strong>{selectedLink.bandwidth_mbps} Mbps</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Latency:</span> <strong>{selectedLink.latency_ms} ms</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Packet Loss:</span> <strong>{selectedLink.loss_rate_percent}%</strong></div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Operational Status:</span>{' '}
-                  <span className={`status-badge ${selectedLink.status.toLowerCase()}`}>
-                    ● {selectedLink.status}
-                  </span>
-                </div>
+              <div style={{ fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1rem' }}>
+                <div><span style={{ color: 'var(--text-muted)' }}>ID:</span> <strong className="mono">{selectedLink.id}</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Source:</span> <strong className="mono">{selectedLink.source_id}</strong> &rarr; <span style={{ color: 'var(--text-muted)' }}>Target:</span> <strong className="mono">{selectedLink.target_id}</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Type:</span> <strong>{selectedLink.link_type}</strong> | <span style={{ color: 'var(--text-muted)' }}>Bandwidth:</span> <strong>{selectedLink.bandwidth_mbps} Mbps</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Latency:</span> <strong>{selectedLink.latency_ms} ms</strong> | <span style={{ color: 'var(--text-muted)' }}>Loss Rate:</span> <strong>{selectedLink.loss_rate_percent}%</strong></div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Status:</span> <span className={`status-pill ${selectedLink.status === 'UP' ? 'active' : 'inactive'}`}>{selectedLink.status}</span></div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   type="button"
                   className={`btn ${selectedLink.status === 'UP' ? 'btn-danger' : 'btn-primary'}`}
@@ -610,6 +614,7 @@ export default function TopologyPage({ onDeviceChanged }) {
       <AddDeviceModal
         isOpen={isAddDeviceOpen}
         onClose={() => setIsAddDeviceOpen(false)}
+        existingDevices={devices}
         onDeviceCreated={async () => {
           await fetchTopologyData();
           if (onDeviceChanged) onDeviceChanged();

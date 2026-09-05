@@ -46,6 +46,18 @@ def update_settings(settings_in: NetworkSettings):
     return device_service.update_settings(settings_in)
 
 
+@router.get("/presets", response_model=List[Dict[str, Any]])
+def list_presets():
+    """List available pre-configured network topology presets and structures."""
+    return device_service.get_presets()
+
+
+@router.post("/presets/{preset_id}/load", status_code=status.HTTP_200_OK)
+def load_preset(preset_id: str):
+    """Load a specific network topology preset (e.g. enterprise-campus, star-lan, redundant-ring)."""
+    return device_service.load_preset(preset_id)
+
+
 @router.post("/reset", status_code=status.HTTP_200_OK)
 def reset_network_topology():
     """Reset network topology to default multi-area campus network with all links UP."""

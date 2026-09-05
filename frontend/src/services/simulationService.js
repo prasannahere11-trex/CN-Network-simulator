@@ -1,5 +1,5 @@
 /**
- * Simulation, Links, Routing, Telemetry, and Scenario API Client
+ * Simulation, Links, Routing, Telemetry, Presets, and Scenario API Client
  */
 
 import { request } from './api';
@@ -91,6 +91,17 @@ export async function runScenario(scenarioId) {
 
 export async function runBenchmark() {
   return await request('/simulation/benchmark', { method: 'POST' });
+}
+
+// Sample Topology Presets & Structures
+export async function getPresets() {
+  return await request('/simulation/presets', { method: 'GET' });
+}
+
+export async function loadPreset(presetId) {
+  return await request(`/simulation/presets/${encodeURIComponent(presetId)}/load`, {
+    method: 'POST',
+  });
 }
 
 // Settings & State

@@ -430,13 +430,79 @@ class NetworkStoreService:
                 lk = LinkResponse(**l)
                 new_links[lk.id] = lk
             
-            self._devices = new_devices
-            self._links = new_links
-            if "settings" in state_data:
-                self._settings = NetworkSettings(**state_data["settings"])
-            return True
-        except Exception as e:
-            raise ValueError(f"Invalid state format: {str(e)}")
+    def get_presets(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": "enterprise-campus",
+                "name": "Enterprise 3-Tier Campus (Default)",
+                "badge": "3-Tier Multi-Area",
+                "description": "12-node complete campus hierarchy across LAN 1 (CSE), LAN 2 (ECE), MAN Ring Core, Data Center, and WAN Edge to Cloud."
+            },
+            {
+                "id": "star-lan",
+                "name": "Department Star LAN Architecture",
+                "badge": "Single Subnet Star",
+                "description": "Central Gigabit Access Switch connecting 4 Workstations, Department Storage Server, and Gateway Router."
+            },
+            {
+                "id": "redundant-ring",
+                "name": "High-Availability Redundant MAN Mesh Ring",
+                "badge": "Fault-Tolerant Ring",
+                "description": "4 Core Routers in dual-ring mesh with redundant cross-links and failover paths for testing fiber cuts."
+            },
+            {
+                "id": "hybrid-cloud-wan",
+                "name": "Multi-Branch & Hybrid Cloud WAN",
+                "badge": "Multi-Site WAN",
+                "description": "Main Campus & Medical Branch connected through ISP WAN Cloud to AWS VPC cloud servers."
+            },
+            {
+                "id": "p2p-lab",
+                "name": "Point-to-Point 2-Host Lab",
+                "badge": "Educational Lab",
+                "description": "Minimal dual-host teaching topology (PC-A -> Switch -> Router -> PC-B) for step-by-step packet header inspection."
+            },
+            {
+                "id": "blank-canvas",
+                "name": "Blank Canvas (Clean Slate)",
+                "badge": "Custom Builder",
+                "description": "Empty starting grid to construct custom network architectures from scratch."
+            }
+        ]
+
+    def load_preset(self, preset_id: str) -> Dict[str, Any]:
+        if preset_id == "star-lan":
+            self._devices.clear()
+            self._links.clear()
+            devs = [
+                DeviceResponse(id="SW-CENTRAL", name="Dept-Core-Switch", type=DeviceType.SWITCH, ip_address="192.168.50.1", status=DeviceStatus.ACTIVE, location="Floor 1 Switch Closet", area=AreaType.LAN, subnet_mask="255.255.255.0", gateway="192.168.50.254", mac_address="00:1A:2B:3C:50:01", x=600.0, y=300.0),
+                DeviceResponse(id="PC-ST-01", name="Lab-Station-A1", type=DeviceType.PC, ip_address="192.168.50.10", status=DeviceStatus.ACTIVE, location="Room 101 Desk 1", area=AreaType.LAN, subnet_mask="255.255.255.0", gateway="192.168.50.254", mac_address="00:1A:2B:3C:50:10", x=280.0, y=150.0),
+                DeviceResponse(id="PC-ST-02", name="Lab-Station-A2", type=DeviceType.PC, ip_address="192.168.50.11", status=DeviceStatus.ACTIVE, location="Room 101 Desk 2", area=AreaType.LAN, subnet_mask="255.255.255.0", gateway="192.168.50.254", mac_address="00:1A:2B:3C:50:11", x=280.0, y=300.0),
+                DeviceResponse(id="PC-ST-03", name="Lab-Station-A3", type=DeviceType.PC, ip_address="192.168.50.12", status=DeviceStatus.ACTIVE, location="Room 101 Desk 3", area=AreaType.LAN, subnet_mask="255.255.255.0", gateway="192.168.50.254", mac_address="00:1A:2B:3C:50:12", x=280.0, y=450.0),
+                DeviceResponse(id="SRV-FILE", name="Dept-Storage-NAS", type=DeviceType.SERVER, ip_address="192.168.50.200", status=DeviceStatus.ACTIVE, location="Server Closet", area=AreaType.LAN, subnet_mask="255.255.255.0", gateway="192.168.50.254", mac_address="00:1A:2B:3C:50:C8", x=920.0, y=180.0),
+                DeviceResponse(id="RT-STAR-GW", name="Dept-Border-Router", type=DeviceType.ROUTER, ip_address="192.168.50.254", status=DeviceStatus.ACTIVE, location="Telecom Room", area=AreaType.LAN, subnet_mask="255.255.255.0", gateway="10.0.0.1", mac_address="00:1A:2B:3C:50:FE", x=920.0, y=420.0)
+            ]
+            for d in devs: self._devices[d.id] = d
+            lks = [
+                LinkResponse(id="LINK-ST01-SW", source_id="PC-ST-01", target_id="SW-CENTRAL", bandwidth_mbps=1000.0, latency_ms=1.0, loss_rate_percent=0.0, status=LinkStatus.UP, link_type=LinkType.ETHERNET),
+                LinkResponse(id="LINK-ST02-SW", source_id="PC-ST-02", target_id="SW-CENTRAL", bandwidth_mbps=1000.0, latency_ms=1.0, loss_rate_percent=0.0, status=LinkStatus.UP, link_type=LinkType.ETHERNET),
+                LinkResponse(id="LINK-ST03-SW", source_id="PC-ST-03", target_id="SW-CENTRAL", bandwidth_mbps=1000.0, latency_ms=1.0, loss_rate_percent=0.0, status=LinkStatus.UP, link_type=LinkType.ETHERNET),
+                LinkResponse(id="LINK-SW-SRVFILE", source_id="SW-CENTRAL", target_id="SRV-FILE", bandwidth_mbps=10000.0, latency_ms=0.5, loss_rate_percent=0.0, status=LinkStatus.UP, link_type=LinkType.FIBER),
+                LinkResponse(id="LINK-SW-RTSTAR", source_id="SW-CENTRAL", target_id="RT-STAR-GW", bandwidth_mbps=1000.0, latency_ms=1.0, loss_rate_percent=0.0, status=LinkStatus.UP, link_type=LinkType.ETHERNET),
+            ]
+            for l in lks: self._links[l.id] = l
+        elif preset_id == "blank-canvas":
+            self._devices.clear()
+            self._links.clear()
+        else:
+            self.reset_to_default_topology()
+
+        return {
+            "message": f"Preset '{preset_id}' loaded successfully",
+            "preset_id": preset_id,
+            "device_count": len(self._devices),
+            "link_count": len(self._links)
+        }
 
 
 # Singleton instance

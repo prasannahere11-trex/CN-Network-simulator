@@ -246,6 +246,12 @@ body {
   color: var(--badge-active-text);
 }
 
+.health-badge.active-engine {
+  background-color: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+
 .health-badge.disconnected {
   background-color: var(--badge-inactive-bg);
   border: 1px solid var(--badge-inactive-border);
@@ -263,6 +269,18 @@ body {
   background-color: var(--accent-emerald);
   box-shadow: 0 0 8px var(--accent-emerald);
   animation: pulse-green 2s infinite;
+}
+
+.health-badge.active-engine .pulse-dot {
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+  animation: pulse-cyan 2s infinite;
+}
+
+@keyframes pulse-cyan {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
 }
 
 .health-badge.disconnected .pulse-dot {

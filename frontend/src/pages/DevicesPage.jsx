@@ -285,6 +285,7 @@ export default function DevicesPage({ onDeviceChanged }) {
       <AddDeviceModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        existingDevices={devices}
         onDeviceCreated={async () => {
           await fetchDevices();
           if (onDeviceChanged) onDeviceChanged();

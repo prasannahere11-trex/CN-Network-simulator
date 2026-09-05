@@ -13,9 +13,9 @@ export default function Header({ activeTab, isConnected }) {
       </div>
 
       <div className="header-right">
-        <div className={`health-badge ${isConnected ? 'connected' : 'disconnected'}`}>
+        <div className={`health-badge ${isConnected ? 'connected' : 'active-engine'}`}>
           <span className="pulse-dot"></span>
-          <span>{isConnected ? '● Backend Connected' : '● Backend Disconnected'}</span>
+          <span>{isConnected ? '● FastAPI Server Connected' : '● In-Browser Simulation Engine (Active)'}</span>
         </div>
       </div>
     </header>
